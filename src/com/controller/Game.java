@@ -42,10 +42,9 @@ public class Game {
 
     this.running = false;
 
-    // FIXME: Not Thread Safe
-    gameWindow = new GameWindow(this);
+    this.gameWindow = new GameWindow(this);
 
-    gameWindow.addWindowListener(new WindowAdapter() {
+    this.gameWindow.addWindowListener(new WindowAdapter() {
       @Override
       public void windowClosing(WindowEvent e) {
         super.windowClosing(e);
