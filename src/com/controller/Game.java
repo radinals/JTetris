@@ -21,6 +21,7 @@ public class Game {
   private volatile long frameRate = 300;
   private final int baseLineClearScore = 100;
   private int totalScore;
+  private final int bonusScores = 2;
   
   public Game() {
     gameBoard = new Board(12, 22, new BoardEventListener() {
@@ -54,7 +55,7 @@ public class Game {
   }
   
   public int calculateScore(int linesCleared) {
-    return linesCleared * baseLineClearScore;
+    return (baseLineClearScore * linesCleared) * (int)((linesCleared > 1) ? bonusScores : 1);
   }
   
   public synchronized void increaseMovementSpeed() {
