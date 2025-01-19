@@ -42,6 +42,7 @@ public class Game {
     });
 
     this.running = false;
+    this.totalScore = 0;
 
     this.gameWindow = new GameWindow(this);
 
