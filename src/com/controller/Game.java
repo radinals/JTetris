@@ -2,6 +2,8 @@ package com.controller;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.random.RandomGenerator;
 
 import javax.swing.SwingUtilities;
@@ -18,10 +20,17 @@ public class Game {
   private Board gameBoard;
   private volatile boolean running;
   private int blockSize = (int)(16 * 1);
-  private volatile long frameRate = 300;
+  private volatile long frameRate = 800L;
   private final int baseLineClearScore = 100;
   private int totalScore;
   private final int bonusScores = 2;
+  private volatile boolean explicitRepaintCalled = false;
+//  private int scoreLevelFactor = 1000;
+  private final long frameRateSpeedModifier = 100L;
+  private final long frameRateSpeedMin = 100L;
+  
+  private HashMap<String,Integer> shapeGenerationOdds;
+  private int totalBlocksGenerated = 0;
   
   public Game() {
     gameBoard = new Board(12, 22, new BoardEventListener() {
@@ -40,6 +49,12 @@ public class Game {
       }
 
     });
+    
+    this.shapeGenerationOdds = new HashMap<String, Integer>();
+    
+    for(Shape shape : Shape.values()) {
+      this.shapeGenerationOdds.put(shape.toString(), 0);
+    }
 
     this.running = false;
     this.totalScore = 0;
@@ -60,15 +75,18 @@ public class Game {
   }
   
   public synchronized void increaseMovementSpeed() {
-    if (frameRate < 100) {
-      frameRate = 100;
-    } else {
-      frameRate-=10L;
-    }
+    frameRate -= frameRateSpeedModifier;
+    repaint();
+    explicitRepaintCalled = true;
+
+    if (frameRate < frameRateSpeedMin) 
+      frameRate = frameRateSpeedMin;
   }
 
   public synchronized void decreaseMovementSpeed() {
-    frameRate+=100L;
+    frameRate+=frameRateSpeedModifier;
+    repaint();
+    explicitRepaintCalled = true;
   }
   
   public void spawnNewBlock() {
@@ -84,7 +102,13 @@ public class Game {
     return gameBoard;
   }
   
+//  private void increaseGameSpeed() {
+//    if (totalScore > 0 && totalScore % scoreLevelFactor == 0)
+//      increaseGameSpeed();
+//  }
+  
   private void updateGame() {
+//    increaseGameSpeed();
     moveCurrentBlockDown();
   }
 
@@ -117,8 +141,9 @@ public class Game {
     }
   }
 
-  public void repaint() {
+  public synchronized void repaint() {
    gameWindow.repaint();
+   explicitRepaintCalled = true;
   }
 
   public void rotateCurrentBlock() {
@@ -172,15 +197,21 @@ public class Game {
   public void runGameLoop() {
     Thread gameThread = new Thread(() -> {
       while (running) {
+
         updateGame();
 
-        SwingUtilities.invokeLater(this::repaint);
+        if (!explicitRepaintCalled) {
+          SwingUtilities.invokeLater(this::repaint);
+        } else {
+          explicitRepaintCalled = false;
+        }
 
         try {
           Thread.sleep(frameRate);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }
+
       }
     });
     gameThread.start();
@@ -199,11 +230,37 @@ public class Game {
     return Shape.values()[randomRange(0, Shape.values().length)];
   }
   
+  private int getBoardCenterX() {
+    return gameBoard.getColumns() / 2;
+  }
+  
+  private int getBlockCenterX(final Block block) {
+    return block.getBodyWidth() / 2;
+  }
+
+  private int getBlockCenterY(final Block block) {
+    return block.getBodyHeight() / 2;
+  }
+  
   private Block generateRandomBlock() {
     // TODO: add position
     Block block =  new Block(randomRotation(), randomShape());
-    block.setY(0 - block.getBodyHeight()/2);
-    block.setX(gameBoard.getColumns() / 2 - block.getBodyWidth() / 2);
+
+    block.setY(0 - getBlockCenterY(block)); // start offscreen;
+    block.setX(getBoardCenterX() - getBlockCenterX(block));
+    
+    String shapeName = block.getShape().toString();
+    
+    int count = this.shapeGenerationOdds.get(shapeName);
+    this.shapeGenerationOdds.put(shapeName, count+1);
+    
+    ++totalBlocksGenerated;
+
+    for(Map.Entry<String, Integer> e : this.shapeGenerationOdds.entrySet()) {
+     System.out.println(e.getKey() + ":" + e.getValue() + " ODDS:" + ((float)e.getValue() / totalBlocksGenerated)); 
+    }
+    System.out.println("TOTAL GENERATED: " + totalBlocksGenerated);
+    
     return block;
   }
 }
